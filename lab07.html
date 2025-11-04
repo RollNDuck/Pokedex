@@ -1,0 +1,57 @@
+<html>
+  <head>
+    <script type="module" src="pokemon.js"></script>
+
+    <style>
+      #sprite {
+        width: 200px;
+        height: 200px;
+        margin: 20px 0;
+      }
+
+      #name-text {
+        font-family: 'Trebuchet MS';
+        font-weight: bold;
+        font-size: 50px;
+        margin: 5px 0;
+      }
+
+      #type-text {
+        font-family: 'Courier new';
+        font-weight: bold;
+        font-size: 18px;
+        margin: 10px 10;
+      }
+
+       #height-text, #weight-text {
+        font-family: 'Trebuchet MS';
+        font-size: 25px;
+        margin: 5px 10;
+      }
+
+      #pokemon-info {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="app">
+      <input id="search-input" type="text" placeholder="Pokemon" />
+      <button id="search-btn">Search!</button>
+
+      <div id="pokemon-info">
+        <img id="sprite">
+        <div>
+          <p id="name-text">Name </p>
+          <p id="type-text" class="info-text">Type </p>
+          <p id="height-text" class="info-text">Height: </p>
+          <p id="weight-text" class="info-text">Weight: </p>
+        </div>
+
+      </div>
+    </div>
+  </body>
+</html>
