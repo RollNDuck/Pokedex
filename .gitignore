@@ -1,6 +1,6 @@
-/.parcel-cache
-/dist
 /node_modules
+/dist
+/.parcel-cache
 
 lab07test.html
 package-lock.json
