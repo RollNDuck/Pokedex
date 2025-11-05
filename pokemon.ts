@@ -1,9 +1,16 @@
 import {Array, String, pipe, Number, Order, Effect} from "effect"
 
+// Universal constants
 const input = document.getElementById("search-input") as HTMLInputElement;
-const button = document.getElementById("search-btn") as HTMLButtonElement;
 const app = document.getElementById("app") as HTMLDivElement;
 
+// ADDED: Phase 4 - Cache to prevent refetching already fetched Pokémon
+const pokemonCache = new Map<number, PokemonData>();
+
+// ADDED: Phase 4 - Cache to prevent refetching generation data
+const generationCache = new Map<number, PokemonGeneration>();
+
+// Interfaces
 interface PokemonGeneration {
     pokemon_species: Array<{
         name: string;
@@ -26,16 +33,15 @@ interface PokemonData {
     };
 }
 
-// ADDED: Phase 4 - Cache to prevent refetching already fetched Pokémon
-const pokemonCache = new Map<number, PokemonData>();
-
-// ADDED: Phase 4 - Cache to prevent refetching generation data
-const generationCache = new Map<number, PokemonGeneration>();
-
 // ADDED: Phase 4 - Function to insert entry in sorted order (for incremental display)
 function insertEntryInOrder(grid: HTMLDivElement, entry: HTMLDivElement): void {
     const newId = parseInt(entry.dataset.id || "0");
-    const entries = globalThis.Array.from(grid.children) as HTMLDivElement[];
+
+    // FIX: Replaced globalThis.Array.from() with manual iteration to comply with restrictions
+    const entries: HTMLDivElement[] = [];
+    for (let i = 0; i < grid.children.length; i++) {
+        entries[i] = grid.children[i] as HTMLDivElement;
+    }
 
     let insertIndex = -1;
     for (let i = 0; i < entries.length; i++) {
@@ -136,27 +142,7 @@ function fetchPokemon(): void {
     })
 }
 
-function pokedexDisplay(pokedex: Array<PokemonData>): void {
-    // Removes pokemon whose letters are not part of the text in the search bar
-    const currentDisplay = document.querySelector(".pokedex-grid");
-    if (currentDisplay) {
-    Effect.runSync(Effect.sync(() => {
-        currentDisplay.parentNode?.removeChild(currentDisplay);
-    }));
-    }
-
-    // Creates the area with which the created pokedex entry is placed
-    const pokedexEntry = document.createElement("div");
-    pokedexEntry.id = "pokedex-grid";
-    pokedexEntry.className = "pokedex-grid";
-
-    // Creates the pokedex entry
-    pokedex.forEach(pokemon => {
-        const entry = createPokedexEntry(pokemon);
-        pokedexEntry.appendChild(entry);
-    });
-    app.appendChild(pokedexEntry);
-}
+// FIX: Removed pokedexDisplay function as it's unused dead code from earlier phases
 
 function createPokedexEntry(pokemon: PokemonData): HTMLDivElement {
     const entry = document.createElement("div");
@@ -214,9 +200,7 @@ function createPokedexEntry(pokemon: PokemonData): HTMLDivElement {
     return entry;
 }
 
-if (button) {
-  button.addEventListener("click", fetchPokemon);
-}
+// FIX: Removed button event listener since Phase 4 doesn't need submit button
 
 // ADDED: Phase 4 - Listen for input changes (live search as user types)
 if (input) {

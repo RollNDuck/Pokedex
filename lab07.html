@@ -3,6 +3,13 @@
     <script type="module" src="pokemon.ts"></script>
 
     <style>
+      .top-bar {
+        font-family: 'Courier New';
+        font-weight: bold;
+        font-size: 18px;
+        margin: 10px 10;
+      }
+
       .sprite {
         width: 150px;
         height: 150px;
@@ -52,10 +59,10 @@
 
   <body>
     <div id="app">
-      <input id="search-input" type="text" placeholder="Pokemon"/>
-      <button id="search-btn">Search!</button>
 
-      <div id="generation-controls">
+      <div class="top-bar">
+
+        <input id="search-input" type="text" placeholder="Pokemon"/>
 
         <input type="checkbox" id="gen-1" checked />
         <label for="gen-1">Gen 1</label>
