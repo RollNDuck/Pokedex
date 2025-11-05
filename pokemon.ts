@@ -1,16 +1,10 @@
-import {Array, String, pipe, Number, Order, Effect} from "effect"
+import {Array, String, pipe, Number, Order, Effect, Option} from "effect"
 
-// Universal constants
 const input = document.getElementById("search-input") as HTMLInputElement;
 const app = document.getElementById("app") as HTMLDivElement;
-
-// ADDED: Phase 4 - Cache to prevent refetching already fetched Pokémon
 const pokemonCache = new Map<number, PokemonData>();
-
-// ADDED: Phase 4 - Cache to prevent refetching generation data
 const generationCache = new Map<number, PokemonGeneration>();
 
-// Interfaces
 interface PokemonGeneration {
     pokemon_species: Array<{
         name: string;
@@ -33,11 +27,10 @@ interface PokemonData {
     };
 }
 
-// ADDED: Phase 4 - Function to insert entry in sorted order (for incremental display)
+// Function to insert entry in sorted order (for incremental display)
 function insertEntryInOrder(grid: HTMLDivElement, entry: HTMLDivElement): void {
     const newId = parseInt(entry.dataset.id || "0");
 
-    // FIX: Replaced globalThis.Array.from() with manual iteration to comply with restrictions
     const entries: HTMLDivElement[] = [];
     for (let i = 0; i < grid.children.length; i++) {
         entries[i] = grid.children[i] as HTMLDivElement;
@@ -61,18 +54,15 @@ function insertEntryInOrder(grid: HTMLDivElement, entry: HTMLDivElement): void {
 function fetchPokemon(): void {
     const textInBar = input.value.toLowerCase().trim();
 
-    // ADDED: Phase 4 - Get selected generations from checkboxes
-    const selectedGens: number[] = [];
-    for (let i = 1; i <= 9; i++) {
-        const checkbox = document.getElementById(`gen-${i}`) as HTMLInputElement;
-        if (checkbox?.checked) {
-            selectedGens.push(i);
-        }
-    }
+    const allGens = Array.range(1, 9);
+    const selectedGens = Array.filter(allGens, (gen) => {
+    const checkbox = document.getElementById(`gen-${gen}`) as HTMLInputElement | null;
+    return Boolean(checkbox && checkbox.checked);
+    });
 
-    // ADDED: Phase 4 - Fetch all selected generations concurrently
+    // Fetch all selected generations concurrently
     const generationPromises = Array.map(selectedGens, (gen) => {
-        // ADDED: Use cache if available
+        // Use cache if available
         if (generationCache.has(gen)) {
             return Promise.resolve(generationCache.get(gen)!);
         }
@@ -86,7 +76,7 @@ function fetchPokemon(): void {
 
     Promise.all(generationPromises)
     .then((generations: PokemonGeneration[]) => {
-        // ADDED: Phase 4 - Combine all Pokémon species from selected generations
+        // Combine all Pokémon species from selected generations
         const allPokemonSpecies = pipe(
             generations,
             Array.flatMap((gen) => gen.pokemon_species)
@@ -97,7 +87,7 @@ function fetchPokemon(): void {
             pokemon.name.toLowerCase().startsWith(textInBar)
         );
 
-        // ADDED: Phase 4 - Clear existing display for incremental display
+        // Clear existing display for incremental display
         const currentDisplay = document.querySelector(".pokedex-grid");
         if (currentDisplay) {
             Effect.runSync(Effect.sync(() => {
@@ -105,7 +95,7 @@ function fetchPokemon(): void {
             }));
         }
 
-        // ADDED: Phase 4 - Create grid for incremental display
+        // Create grid for incremental display
         const pokedexGrid = document.createElement("div");
         pokedexGrid.id = "pokedex-grid";
         pokedexGrid.className = "pokedex-grid";
@@ -116,10 +106,10 @@ function fetchPokemon(): void {
             const urlGrabber = Array.filter(String.split(pokemon.url, "/"), Boolean);
             const pokemonID = parseInt(urlGrabber[urlGrabber.length - 1]);
 
-            // ADDED: Phase 4 - Use cache if available
+            // Use cache if available
             if (pokemonCache.has(pokemonID)) {
                 const cachedData = pokemonCache.get(pokemonID)!;
-                // ADDED: Phase 4 - Display immediately from cache (incremental display)
+                // Display immediately from cache (incremental display)
                 const entry = createPokedexEntry(cachedData);
                 insertEntryInOrder(pokedexGrid, entry);
                 return Promise.resolve(cachedData);
@@ -130,7 +120,7 @@ function fetchPokemon(): void {
                 .then((data: PokemonData) => {
                     pokemonCache.set(pokemonID, data);
 
-                    // ADDED: Phase 4 - Display immediately after fetching (incremental display)
+                    // Display immediately after fetching (incremental display)
                     const entry = createPokedexEntry(data);
                     insertEntryInOrder(pokedexGrid, entry);
 
@@ -142,12 +132,10 @@ function fetchPokemon(): void {
     })
 }
 
-// FIX: Removed pokedexDisplay function as it's unused dead code from earlier phases
-
 function createPokedexEntry(pokemon: PokemonData): HTMLDivElement {
     const entry = document.createElement("div");
     entry.className = "pokedex-entry"
-    // ADDED: Phase 4 - Store ID in dataset for sorting
+    // Store ID in dataset for sorting
     entry.dataset.id = pokemon.id.toString();
 
     // Where the info of an entry is contained
@@ -200,14 +188,12 @@ function createPokedexEntry(pokemon: PokemonData): HTMLDivElement {
     return entry;
 }
 
-// FIX: Removed button event listener since Phase 4 doesn't need submit button
-
-// ADDED: Phase 4 - Listen for input changes (live search as user types)
+// Listen for input changes (live search as user types)
 if (input) {
     input.addEventListener("input", fetchPokemon);
 }
 
-// ADDED: Phase 4 - Listen for checkbox changes on all generation checkboxes
+// Listen for checkbox changes on all generation checkboxes
 for (let i = 1; i <= 9; i++) {
     const checkbox = document.getElementById(`gen-${i}`);
     if (checkbox) {
