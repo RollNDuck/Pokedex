@@ -1,56 +1,67 @@
 <html>
   <head>
-    <script type="module" src="pokemon.js"></script>
+    <script type="module" src="pokemon.ts"></script>
 
     <style>
-      #sprite {
-        width: 200px;
-        height: 200px;
-        margin: 20px 0;
+      .sprite {
+        width: 150px;
+        height: 150px;
+        margin: 10px 0;
       }
 
-      #name-text {
+      .name-text {
         font-family: 'Trebuchet MS';
         font-weight: bold;
         font-size: 50px;
         margin: 5px 0;
       }
 
-      #type-text {
-        font-family: 'Courier new';
-        font-weight: bold;
+      .type-text {
+        font-family: 'Courier New';
         font-size: 18px;
         margin: 10px 10;
       }
 
-       #height-text, #weight-text {
+      .height-text, .weight-text {
         font-family: 'Trebuchet MS';
         font-size: 25px;
         margin: 5px 10;
       }
 
-      #pokemon-info {
+      .pokemon-info {
         display: flex;
         align-items: center;
-        gap: 20px;
+        gap: 1em;
+      }
+
+      .pokedex-entry {
+        border: 1px solid;
+        border-radius: 8px;
+        padding: 8px;
+        text-align: center;
+      }
+
+      .pokedex-grid{
+        display: grid;
+        grid-template-columns: auto auto auto auto;
+        gap: 1em;
+        margin-top: 20px;
       }
     </style>
   </head>
 
   <body>
     <div id="app">
-      <input id="search-input" type="text" placeholder="Pokemon" />
+      <input id="search-input" type="text" placeholder="Pokemon"/>
       <button id="search-btn">Search!</button>
-
-      <div id="pokemon-info">
+      <!-- <div id="pokemon-info">
         <img id="sprite">
         <div>
-          <p id="name-text">Name </p>
-          <p id="type-text" class="info-text">Type </p>
+          <h1><p id="name-text">Name</p></h1>
+          <p id="type-text" class="info-text">Type</p>
           <p id="height-text" class="info-text">Height: </p>
           <p id="weight-text" class="info-text">Weight: </p>
-        </div>
-
+        </div> -->
       </div>
     </div>
   </body>
