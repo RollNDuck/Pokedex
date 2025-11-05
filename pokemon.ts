@@ -29,26 +29,27 @@ interface PokemonData {
 
 // Function to insert entry in sorted order (for incremental display)
 function insertEntryInOrder(grid: HTMLDivElement, entry: HTMLDivElement): void {
-    const newId = parseInt(entry.dataset.id || "0");
+  const newId = parseInt(entry.dataset.id || "0", 10);
 
-    const entries: HTMLDivElement[] = [];
-    for (let i = 0; i < grid.children.length; i++) {
-        entries[i] = grid.children[i] as HTMLDivElement;
-    }
+  // Build an effect/Array from grid.children (no native Array methods).
+  // We use Array.fromIterable to convert HTMLCollection to effect/Array.
+  const entries = pipe(
+    Array.fromIterable(grid.children),
+    Array.map((child) => child as HTMLDivElement)
+  );
 
-    let insertIndex = -1;
-    for (let i = 0; i < entries.length; i++) {
-        if (parseInt(entries[i].dataset.id || "0") > newId) {
-            insertIndex = i;
-            break;
-        }
-    }
+  // Find the first element whose dataset.id > newId
+  const candidateOption = Array.findFirst(entries, (el) =>
+    parseInt(el.dataset.id || "0", 10) > newId
+  );
 
-    if (insertIndex === -1) {
-        grid.appendChild(entry);
-    } else {
-        grid.insertBefore(entry, entries[insertIndex]);
-    }
+  // Handle Option: append if None, otherwise insert before found element
+  if (Option.isNone(candidateOption)) {
+    grid.appendChild(entry);
+  } else {
+    const beforeEl = candidateOption.value;
+    grid.insertBefore(entry, beforeEl);
+  }
 }
 
 function fetchPokemon(): void {
@@ -61,21 +62,26 @@ function fetchPokemon(): void {
     });
 
     // Fetch all selected generations concurrently
-    const generationPromises = Array.map(selectedGens, (gen) => {
+    const generationEffects = Array.map(selectedGens, (gen) => {
         // Use cache if available
         if (generationCache.has(gen)) {
-            return Promise.resolve(generationCache.get(gen)!);
+            return Effect.succeed(generationCache.get(gen)!);
         }
-        return fetch(`https://pokeapi.upd-dcs.work/api/v2/generation/${gen}`)
-            .then((response) => response.json())
-            .then((data: PokemonGeneration) => {
+        return pipe(
+            Effect.tryPromise(() =>
+                fetch(`https://pokeapi.upd-dcs.work/api/v2/generation/${gen}`)
+            ),
+            Effect.flatMap(response =>
+                Effect.tryPromise(() => response.json())
+            ),
+            Effect.map((data: PokemonGeneration) => {
                 generationCache.set(gen, data);
                 return data;
-            });
+            })
+        );
     });
 
-    Promise.all(generationPromises)
-    .then((generations: PokemonGeneration[]) => {
+    Effect.runPromise(Effect.all(generationEffects)).then((generations: PokemonGeneration[]) => {
         // Combine all Pokémon species from selected generations
         const allPokemonSpecies = pipe(
             generations,
@@ -90,9 +96,7 @@ function fetchPokemon(): void {
         // Clear existing display for incremental display
         const currentDisplay = document.querySelector(".pokedex-grid");
         if (currentDisplay) {
-            Effect.runSync(Effect.sync(() => {
-                currentDisplay.parentNode?.removeChild(currentDisplay);
-            }));
+            currentDisplay.parentNode?.removeChild(currentDisplay);
         }
 
         // Create grid for incremental display
@@ -102,34 +106,55 @@ function fetchPokemon(): void {
         app.appendChild(pokedexGrid);
 
         // Gets all the possible Pokemon's details concurrently
-        const fetchingPokemon = Array.map(possiblePokemon, pokemon => {
-            const urlGrabber = Array.filter(String.split(pokemon.url, "/"), Boolean);
-            const pokemonID = parseInt(urlGrabber[urlGrabber.length - 1]);
+        pipe(
+            possiblePokemon,
+            Array.forEach((pokemon) => {
+                // Extract ID from URL using effect-compliant methods only
+                const urlGrabber = Array.filter(String.split(pokemon.url, "/"), Boolean);
+                // Use Array.last instead of native array access [length - 1]
+                const pokemonID = pipe(
+                    urlGrabber,
+                    Array.last,
+                    Option.map(id => parseInt(id, 10)),
+                    Option.getOrElse(() => -1)
+                );
 
-            // Use cache if available
-            if (pokemonCache.has(pokemonID)) {
-                const cachedData = pokemonCache.get(pokemonID)!;
-                // Display immediately from cache (incremental display)
-                const entry = createPokedexEntry(cachedData);
-                insertEntryInOrder(pokedexGrid, entry);
-                return Promise.resolve(cachedData);
-            }
+                // Skip if ID extraction failed (should not happen with valid API)
+                if (pokemonID === -1) return;
 
-            return fetch(`https://pokeapi.upd-dcs.work/api/v2/pokemon/${pokemonID}`)
-                .then((response) => response.json())
-                .then((data: PokemonData) => {
-                    pokemonCache.set(pokemonID, data);
-
-                    // Display immediately after fetching (incremental display)
-                    const entry = createPokedexEntry(data);
+                // Use cache if available
+                if (pokemonCache.has(pokemonID)) {
+                    const cachedData = pokemonCache.get(pokemonID)!;
+                    // Display immediately from cache (incremental display)
+                    const entry = createPokedexEntry(cachedData);
                     insertEntryInOrder(pokedexGrid, entry);
+                    return;
+                }
 
-                    return data;
-                });
-        });
+                // Fetch and display incrementally
+                const fetchEffect = pipe(
+                    Effect.tryPromise(() =>
+                        fetch(`https://pokeapi.upd-dcs.work/api/v2/pokemon/${pokemonID}`)
+                    ),
+                    Effect.flatMap(response =>
+                        Effect.tryPromise(() => response.json())
+                    ),
+                    Effect.map((data: PokemonData) => {
+                        pokemonCache.set(pokemonID, data);
 
-        return Promise.all(fetchingPokemon);
-    })
+                        // Display immediately after fetching (incremental display)
+                        const entry = createPokedexEntry(data);
+                        insertEntryInOrder(pokedexGrid, entry);
+
+                        return data;
+                    })
+                );
+
+                // Fire-and-forget for incremental display (as required by lab spec)
+                Effect.runPromise(fetchEffect).catch(console.error);
+            })
+        );
+    }).catch(console.error);
 }
 
 function createPokedexEntry(pokemon: PokemonData): HTMLDivElement {
@@ -186,6 +211,14 @@ function createPokedexEntry(pokemon: PokemonData): HTMLDivElement {
     entry.appendChild(pokedexEntryContainer);
 
     return entry;
+}
+
+// Initialize checkboxes: only Gen 1 should be checked by default (Phase 4 requirement)
+for (let i = 1; i <= 9; i++) {
+    const checkbox = document.getElementById(`gen-${i}`) as HTMLInputElement | null;
+    if (checkbox) {
+        checkbox.checked = (i === 1);
+    }
 }
 
 // Listen for input changes (live search as user types)
