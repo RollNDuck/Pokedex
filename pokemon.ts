@@ -1,4 +1,4 @@
-import {Array, String, pipe, Number, Order, Effect, Option} from "effect"
+import {Array, String, pipe, Effect, Option} from "effect"
 
 const input = document.getElementById("search-input") as HTMLInputElement;
 const app = document.getElementById("app") as HTMLDivElement;
@@ -27,12 +27,15 @@ interface PokemonData {
     };
 }
 
+// Helper function for capitalizing (in case String.capitalize is not available)
+const capitalize = (s: string): string =>
+    s.length > 0 ? s[0].toUpperCase() + s.slice(1) : s;
+
 // Function to insert entry in sorted order (for incremental display)
 function insertEntryInOrder(grid: HTMLDivElement, entry: HTMLDivElement): void {
   const newId = parseInt(entry.dataset.id || "0", 10);
 
   // Build an effect/Array from grid.children (no native Array methods).
-  // We use Array.fromIterable to convert HTMLCollection to effect/Array.
   const entries = pipe(
     Array.fromIterable(grid.children),
     Array.map((child) => child as HTMLDivElement)
@@ -55,10 +58,19 @@ function insertEntryInOrder(grid: HTMLDivElement, entry: HTMLDivElement): void {
 function fetchPokemon(): void {
     const textInBar = input.value.toLowerCase().trim();
 
+    // Guard against empty search to avoid fetching all Pokémon
+    if (textInBar.length === 0) {
+        const existing = document.querySelector(".pokedex-grid");
+        if (existing) {
+            existing.parentNode?.removeChild(existing);
+        }
+        return;
+    }
+
     const allGens = Array.range(1, 9);
     const selectedGens = Array.filter(allGens, (gen) => {
-    const checkbox = document.getElementById(`gen-${gen}`) as HTMLInputElement | null;
-    return Boolean(checkbox && checkbox.checked);
+        const checkbox = document.getElementById(`gen-${gen}`) as HTMLInputElement | null;
+        return Boolean(checkbox && checkbox.checked);
     });
 
     // Fetch all selected generations concurrently
@@ -72,7 +84,9 @@ function fetchPokemon(): void {
                 fetch(`https://pokeapi.upd-dcs.work/api/v2/generation/${gen}`)
             ),
             Effect.flatMap(response =>
-                Effect.tryPromise(() => response.json())
+                response.ok
+                    ? Effect.tryPromise(() => response.json())
+                    : Effect.fail(new Error(`HTTP ${response.status} for generation ${gen}`))
             ),
             Effect.map((data: PokemonGeneration) => {
                 generationCache.set(gen, data);
@@ -89,8 +103,12 @@ function fetchPokemon(): void {
         );
 
         // Filters all possible Pokemon whose names start with the text in the search bar
-        const possiblePokemon = Array.filter(allPokemonSpecies, pokemon =>
-            pokemon.name.toLowerCase().startsWith(textInBar)
+        // Limit to first 50 results to avoid overwhelming the browser with requests
+        const possiblePokemon = pipe(
+            Array.filter(allPokemonSpecies, pokemon =>
+                pokemon.name.toLowerCase().startsWith(textInBar)
+            ),
+            Array.take(50)
         );
 
         // Clear existing display for incremental display
@@ -137,7 +155,9 @@ function fetchPokemon(): void {
                         fetch(`https://pokeapi.upd-dcs.work/api/v2/pokemon/${pokemonID}`)
                     ),
                     Effect.flatMap(response =>
-                        Effect.tryPromise(() => response.json())
+                        response.ok
+                            ? Effect.tryPromise(() => response.json())
+                            : Effect.fail(new Error(`HTTP ${response.status} for Pokemon ${pokemonID}`))
                     ),
                     Effect.map((data: PokemonData) => {
                         pokemonCache.set(pokemonID, data);
@@ -175,21 +195,18 @@ function createPokedexEntry(pokemon: PokemonData): HTMLDivElement {
     // Creates the div block
     const infoDiv = document.createElement("div");
 
-    // Name
-    const nameText = document.createElement("h1");
-    const name = document.createElement("p");
-    name.className = "name-text";
-    name.textContent = String.capitalize(pokemon.name);
-    nameText.appendChild(name);
+    // Name - Fixed: h1 should contain text directly, not wrap a p
+    const nameHeading = document.createElement("h1");
+    nameHeading.className = "name-text";
+    nameHeading.textContent = capitalize(pokemon.name);
 
     // Type/s
     const typeText = document.createElement("p");
     typeText.className = "type-text";
-    typeText.innerHTML = Array.join(" | ")(
-        Array.map(pokemon.types, t =>
-            `<code>${String.capitalize(t.type.name)}</code>`
-        )
+    const typesArray = Array.map(pokemon.types, t =>
+        `<code>${capitalize(t.type.name)}</code>`
     );
+    typeText.innerHTML = Array.join(typesArray, " | ");
 
     // Height
     const heightText = document.createElement("p");
@@ -201,7 +218,7 @@ function createPokedexEntry(pokemon: PokemonData): HTMLDivElement {
     weightText.className = "weight-text";
     weightText.textContent = `Weight: ${pokemon.weight / 10} kg`;
 
-    infoDiv.appendChild(nameText);
+    infoDiv.appendChild(nameHeading);
     infoDiv.appendChild(typeText);
     infoDiv.appendChild(heightText);
     infoDiv.appendChild(weightText);
@@ -213,23 +230,18 @@ function createPokedexEntry(pokemon: PokemonData): HTMLDivElement {
     return entry;
 }
 
-// Initialize checkboxes: only Gen 1 should be checked by default (Phase 4 requirement)
-for (let i = 1; i <= 9; i++) {
-    const checkbox = document.getElementById(`gen-${i}`) as HTMLInputElement | null;
-    if (checkbox) {
-        checkbox.checked = (i === 1);
-    }
-}
-
 // Listen for input changes (live search as user types)
 if (input) {
     input.addEventListener("input", fetchPokemon);
 }
 
 // Listen for checkbox changes on all generation checkboxes
-for (let i = 1; i <= 9; i++) {
-    const checkbox = document.getElementById(`gen-${i}`);
-    if (checkbox) {
-        checkbox.addEventListener("change", fetchPokemon);
-    }
-}
+pipe(
+    Array.range(1, 9),
+    Array.forEach((i) => {
+        const checkbox = document.getElementById(`gen-${i}`);
+        if (checkbox) {
+            checkbox.addEventListener("change", fetchPokemon);
+        }
+    })
+);
